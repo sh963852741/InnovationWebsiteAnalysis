@@ -44,13 +44,23 @@
     </div>
     <script src="http://cxw.xmu.edu.cn/api/datacenter/GetDataSource?depart=信息学院&type=js"></script>
     <script type="text/javascript">
-        loadMainChart();
-        loadDetailChart();
+        $(function () {
+            loadMainChart();
+            var year = null;
+            var batch = null;
+            for (item of dataSource.BatchDimension) {
+                if (item.通过项目数 !== 0) {
+                    year = item.ApplyYear;
+                    batch = item.Batch;
+                }
+            }
+            loadDetailChart(year, batch);
+        });
         function processBatchDimension(sourceData) {
-            let xAxisData = sourceData.map(e => `${e.ApplyYear}(${e.Batch})`);
-            let establishedData = sourceData.map(e => e.通过项目数);
-            let concludedData = sourceData.map(e => e.项目结题数);
-            let studentCount = sourceData.map(e => e.通过项目的参与学生数);
+            var xAxisData = sourceData.map(e => `${e.ApplyYear}(${e.Batch})`);
+            var establishedData = sourceData.map(e => e.通过项目数);
+            var concludedData = sourceData.map(e => e.项目结题数);
+            var studentCount = sourceData.map(e => e.通过项目的参与学生数);
             return {
                 xAxisData,
                 establishedData,
@@ -58,36 +68,27 @@
                 studentCount
             }
         }
-        function processMajorDimension(sourceData) {
-            let data = [];
-            for (item of sourceData) {
-                let majorData = data.find(e => e.name === item.Major);
+        function processMajorDimension(sourceData, batch, year) {
+            var data = [];
+            var filtedData = sourceData.filter(e => e.ApplyYear === year && e.Batch === batch);
+            for (item of filtedData) {
+                var majorData = data.find(e => e.name === item.Grade);
                 if (majorData) {
-                    let gradeData = majorData.children.find(e => e.name === item.Grade);
-                    if (gradeData) {
-                        ++gradeData.value;
-                    } else {
-                        majorData.children.push({
-                            name: item.Grade,
-                            value: 1
-                        })
-                    }
+                    ++majorData.value;
                 } else {
                     data.push({
-                        name: item.Major,
-                        children: [{
-                            name: item.Grade,
-                            value: 1
-                        }]
+                        name: item.Grade,
+                        value: 1
                     })
                 }
             }
             return data;
         }
-        function processTeacherDimension(sourceData) {
-            let yAxisData = sourceData.map(e => e.GuideTeacher);
-            let establishedData = sourceData.map(e => e.指导项目数);
-            let concludedData = sourceData.map(e => e.项目结题数);
+        function processTeacherDimension(sourceData, batch, year) {
+            var filtedData = sourceData.filter(e => e.ApplyYear === year && e.Batch === batch);
+            var yAxisData = filtedData.map(e => e.GuideTeacher);
+            var establishedData = filtedData.map(e => e.指导项目数);
+            var concludedData = filtedData.map(e => e.项目结题数);
             return {
                 yAxisData,
                 establishedData,
@@ -95,9 +96,9 @@
             }
         }
         function loadMainChart() {
-            let mainChart = echarts.init(document.getElementById('main-chart'));
-            let data = processBatchDimension(dataSource.BatchDimension);
-            let option = {
+            var mainChart = echarts.init($('#main-chart')[0]);
+            var data = processBatchDimension(dataSource.BatchDimension);
+            var option = {
                 title: {
                     text: '总览'
                 },
@@ -152,21 +153,53 @@
                 }]
             };
             mainChart.setOption(option);
+            mainChart.on('click', function (params) {
+                var year = dataSource.BatchDimension[params.dataIndex].ApplyYear;
+                var batch = dataSource.BatchDimension[params.dataIndex].Batch;
+                loadDetailChart(year, batch);
+            });
         }
-        function loadDetailChart(batchNumber) {
-            let detailChart1 = echarts.init(document.getElementById('detail-chart-1'));
-            let majorData = processMajorDimension(dataSource.MajorDimension);
-            let option1 = {
+        function loadDetailChart(year, batch) {
+            var detailChart1 = echarts.init($('#detail-chart-1')[0]);
+            var majorData = processMajorDimension(dataSource.MajorDimension, batch, year);
+            var option1 = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}级: {c}人 ({d}%)'
+                },
+                legend: {
+                    orient: 'vertical',
+                    left: 10,
+                    data: majorData.map(e => e.name)
+                },
                 series: {
-                    type: 'sunburst',
+                    name: '各年级学生占比',
+                    type: 'pie',
+                    radius: ['50%', '70%'],
+                    avoidLabelOverlap: false,
+                    label: {
+                        show: false,
+                        position: 'center'
+                    },
+                    emphasis: {
+                        label: {
+                            show: true,
+                            fontSize: '30',
+                            fontWeight: 'bold',
+                            formatter: '{b}级\n{c}人({d}%)'
+                        }
+                    },
+                    labelLine: {
+                        show: false
+                    },
                     data: majorData
                 }
             }
             detailChart1.setOption(option1);
 
-            let detailChart3 = echarts.init(document.getElementById('detail-chart-3'));
-            let teacherData = processTeacherDimension(dataSource.GuideTeacherDimension);
-            let option3 = {
+            var detailChart3 = echarts.init($('#detail-chart-3')[0]);
+            var teacherData = processTeacherDimension(dataSource.GuideTeacherDimension, batch, year);
+            var option3 = {
                 title: {
                     text: '学院老师指导大创项目数'
                 },
@@ -184,18 +217,19 @@
                 },
                 yAxis: {
                     type: 'category',
-                    data: teacherData.yAxisData
+                    data: teacherData.yAxisData.slice(0, 19),
+                    inverse: true
                 },
                 series: [
                     {
                         name: '已立项',
                         type: 'bar',
-                        data: teacherData.establishedData
+                        data: teacherData.establishedData.slice(0, 19)
                     },
                     {
                         name: '已结题',
                         type: 'bar',
-                        data: teacherData.concludedData
+                        data: teacherData.concludedData.slice(0, 19)
                     }
                 ]
             }
