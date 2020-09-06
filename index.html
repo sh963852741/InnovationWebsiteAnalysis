@@ -43,11 +43,61 @@
         </div>
     </div>
     <script src="js/testdata.js"></script>
+    <script src="http://cxw.xmu.edu.cn/api/datacenter/GetDataSource?depart=信息学院&type=js"></script>
     <script type="text/javascript">
         loadMainChart();
         loadDetailChart();
+        function processBatchDimension(sourceData) {
+            let xAxisData = sourceData.map(e => `${e.ApplyYear}(${e.Batch})`);
+            let establishedData = sourceData.map(e => e.通过项目数);
+            let concludedData = sourceData.map(e => e.项目结题数);
+            let studentCount = sourceData.map(e => e.通过项目的参与学生数);
+            return {
+                xAxisData,
+                establishedData,
+                concludedData,
+                studentCount
+            }
+        }
+        function processMajorDimension(sourceData) {
+            let data = [];
+            for (item of sourceData) {
+                let majorData = data.find(e => e.name === item.Major);
+                if (majorData) {
+                    let gradeData = majorData.children.find(e => e.name === item.Grade);
+                    if (gradeData) {
+                        ++gradeData.value;
+                    } else {
+                        majorData.children.push({
+                            name: item.Grade,
+                            value: 1
+                        })
+                    }
+                } else {
+                    data.push({
+                        name: item.Major,
+                        children: [{
+                            name: item.Grade,
+                            value: 1
+                        }]
+                    })
+                }
+            }
+            return data;
+        }
+        function processTeacherDimension(sourceData) {
+            let yAxisData = sourceData.map(e => e.GuideTeacher);
+            let establishedData = sourceData.map(e => e.指导项目数);
+            let concludedData = sourceData.map(e => e.项目结题数);
+            return {
+                yAxisData,
+                establishedData,
+                concludedData
+            }
+        }
         function loadMainChart() {
             let mainChart = echarts.init(document.getElementById('main-chart'));
+            let data = processBatchDimension(dataSource.BatchDimension);
             let option = {
                 title: {
                     text: '总览'
@@ -64,7 +114,7 @@
                 },
                 xAxis: {
                     type: 'category',
-                    data: ["2016(1)", "2016(2)", "2017(1)", "2017(2)", "2018(1)", "2018(2)", "2019(1)", "2019(2)", "2020(1)", "2020(2)"],
+                    data: data.xAxisData,
                     axisPointer: {
                         type: 'shadow'
                     }
@@ -88,33 +138,35 @@
                 series: [{
                     name: '已立项',
                     type: 'bar',
-                    data: data.mainChart.established
+                    data: data.establishedData
                 },
                 {
                     name: '已结题',
                     type: 'bar',
-                    data: data.mainChart.concluded
+                    data: data.concludedData
                 },
                 {
                     name: '参与学生数',
                     type: 'line',
                     yAxisIndex: 1,
-                    data: data.mainChart.studentCount
+                    data: data.studentCount
                 }]
             };
             mainChart.setOption(option);
         }
         function loadDetailChart(batchNumber) {
             let detailChart1 = echarts.init(document.getElementById('detail-chart-1'));
+            let majorData = processMajorDimension(dataSource.MajorDimension);
             let option1 = {
                 series: {
                     type: 'sunburst',
-                    data: data.detailChart1.data
+                    data: majorData
                 }
             }
             detailChart1.setOption(option1);
 
             let detailChart3 = echarts.init(document.getElementById('detail-chart-3'));
+            let teacherData = processTeacherDimension(dataSource.GuideTeacherDimension);
             let option3 = {
                 title: {
                     text: '学院老师指导大创项目数'
@@ -133,18 +185,18 @@
                 },
                 yAxis: {
                     type: 'category',
-                    data: ['刘一', '陈二', '张三', '李四', '王五', '赵六', '孙七', '周八']
+                    data: teacherData.yAxisData
                 },
                 series: [
                     {
                         name: '已立项',
                         type: 'bar',
-                        data: data.detailChart3.established
+                        data: teacherData.establishedData
                     },
                     {
                         name: '已结题',
                         type: 'bar',
-                        data: data.detailChart3.concluded
+                        data: teacherData.concludedData
                     }
                 ]
             }
