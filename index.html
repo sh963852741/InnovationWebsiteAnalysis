@@ -24,6 +24,11 @@
         <div id="main-chart" style="width: 100%; height:600px;"></div>
     </div>
     <hr />
+    <div class="container-xl">
+        <h1>
+            <span id="innovation_year"></span>年，第<span id="innovation_batch"></span>批次
+        </h1>
+    </div>
     <!--详细图-->
     <div class="container-xl">
         <div class="row">
@@ -33,7 +38,6 @@
                 </div>
                 <div class="row">
                     <div id="detail-chart-2" style="width: 100%; height: 45vh;">
-                        <em>此处空白</em>
                     </div>
                 </div>
             </div>
@@ -54,6 +58,8 @@
                     batch = item.Batch;
                 }
             }
+            $('#innovation_year').text(year);
+            $('#innovation_batch').text(batch);
             loadDetailChart(year, batch);
         });
         function processBatchDimension(sourceData) {
@@ -156,6 +162,8 @@
             mainChart.on('click', function (params) {
                 var year = dataSource.BatchDimension[params.dataIndex].ApplyYear;
                 var batch = dataSource.BatchDimension[params.dataIndex].Batch;
+                $('#innovation_year').text(year);
+                $('#innovation_batch').text(batch);
                 loadDetailChart(year, batch);
             });
         }
@@ -234,6 +242,42 @@
                 ]
             }
             detailChart3.setOption(option3);
+
+            var lastYearData = dataSource.BatchDimension.find(e => e.Batch === batch && e.ApplyYear === year - 1)
+            var lastBatch = getLastBatch(year, batch);
+            var lastBatchData = dataSource.BatchDimension.find(e => e.Batch === lastBatch.batch && e.ApplyYear === lastBatch.year);
+            var currentData = dataSource.BatchDimension.find(e => e.Batch === batch && e.ApplyYear === year)
+
+            var yoyStudentPct = ((currentData.总参数学生数 - lastYearData.总参数学生数) / lastYearData.总参数学生数 * 100).toFixed(2); // yoy = year on year,  Pct = by percent
+            var bobStudentPct = ((currentData.总参数学生数 - lastBatchData.总参数学生数) / lastBatchData.总参数学生数 * 100).toFixed(2);
+
+            var yoyStudentSituation = getSituation('总参数学生数', '同比', yoyStudentPct);
+            var bobStudentSituation = getSituation('总参数学生数', '环比', bobStudentPct);
+
+            $('#detail-chart-2').empty();
+            $('#detail-chart-2').append(
+                $("<div></div>").append($("<p></p>").text(yoyStudentSituation))
+                    .append($("<p></p>").text(bobStudentSituation))
+            )
+
+        }
+        function getLastBatch(year, batch) {
+            if (batch === 1) {
+                return {
+                    year: year - 1,
+                    batch: 2
+                }
+            } else if (batch === 2) {
+                return {
+                    year,
+                    batch: 1
+                }
+            } else {
+                return {}
+            }
+        }
+        function getSituation(field, monthed, value) {
+            return `${field}${monthed}${value > 0 ? '增加' : '减少'}${Math.abs(value)}%`;
         }
     </script>
 </body>
